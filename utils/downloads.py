@@ -26,7 +26,7 @@ def is_url(url, check=True):
 
 def gsutil_getsize(url=''):
     # gs://bucket/file size https://cloud.google.com/storage/docs/gsutil/commands/du
-    s = subprocess.check_output(f'gsutil du {url}', shell=True).decode('utf-8')
+    s = subprocess.check_output(['gsutil', 'du', url]).decode('utf-8')
     return eval(s.split(' ')[0]) if len(s) else 0  # bytes
 
 
