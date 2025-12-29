@@ -8,6 +8,7 @@ import os
 import subprocess
 import urllib
 from pathlib import Path
+import shlex
 
 import requests
 import torch
@@ -26,8 +27,12 @@ def is_url(url, check=True):
 
 def gsutil_getsize(url=''):
     # gs://bucket/file size https://cloud.google.com/storage/docs/gsutil/commands/du
-    s = subprocess.check_output(f'gsutil du {url}', shell=True).decode('utf-8')
-    return eval(s.split(' ')[0]) if len(s) else 0  # bytes
+    try:
+        command = shlex.split(f'gsutil du {url}')
+        s = subprocess.check_output(command).decode('utf-8')
+        return int(s.split(' ')[0]) if len(s) else 0  # bytes
+    except subprocess.CalledProcessError:
+        return 0
 
 
 def url_getsize(url='https://ultralytics.com/images/bus.jpg'):

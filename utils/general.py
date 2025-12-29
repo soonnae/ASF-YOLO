@@ -312,7 +312,7 @@ def git_describe(path=ROOT):  # path must be a directory
     # Return human-readable git description, i.e. v5.0-5-g3e25f1e https://git-scm.com/docs/git-describe
     try:
         assert (Path(path) / '.git').is_dir()
-        return check_output(f'git -C {path} describe --tags --long --always', shell=True).decode()[:-1]
+        return check_output(['git', '-C', str(path), 'describe', '--tags', '--long', '--always']).decode()[:-1]
     except Exception:
         return ''
 
@@ -327,16 +327,16 @@ def check_git_status(repo='ultralytics/yolov5', branch='master'):
     assert Path('.git').exists(), s + 'skipping check (not a git repository)' + msg
     assert check_online(), s + 'skipping check (offline)' + msg
 
-    splits = re.split(pattern=r'\s', string=check_output('git remote -v', shell=True).decode())
+    splits = re.split(pattern=r'\s', string=check_output(['git', 'remote', '-v']).decode())
     matches = [repo in s for s in splits]
     if any(matches):
         remote = splits[matches.index(True) - 1]
     else:
         remote = 'ultralytics'
-        check_output(f'git remote add {remote} {url}', shell=True)
-    check_output(f'git fetch {remote}', shell=True, timeout=5)  # git fetch
-    local_branch = check_output('git rev-parse --abbrev-ref HEAD', shell=True).decode().strip()  # checked out
-    n = int(check_output(f'git rev-list {local_branch}..{remote}/{branch} --count', shell=True))  # commits behind
+        check_output(['git', 'remote', 'add', remote, url])
+    check_output(['git', 'fetch', remote], timeout=5)  # git fetch
+    local_branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode().strip()  # checked out
+    n = int(check_output(['git', 'rev-list', f'{local_branch}..{remote}/{branch}', '--count']))  # commits behind
     if n > 0:
         pull = 'git pull' if remote == 'origin' else f'git pull {remote} {branch}'
         s += f"⚠️ YOLOv5 is out of date by {n} commit{'s' * (n > 1)}. Use `{pull}` or `git clone {url}` to update."
@@ -406,7 +406,7 @@ def check_requirements(requirements=ROOT / 'requirements.txt', exclude=(), insta
         LOGGER.info(f"{prefix} YOLOv5 requirement{'s' * (n > 1)} {s}not found, attempting AutoUpdate...")
         try:
             # assert check_online(), "AutoUpdate skipped (offline)"
-            LOGGER.info(check_output(f'pip install {s} {cmds}', shell=True).decode())
+            LOGGER.info(check_output(['pip', 'install', *s.split(), *cmds.split()]).decode())
             source = file if 'file' in locals() else requirements
             s = f"{prefix} {n} package{'s' * (n > 1)} updated per {source}\n" \
                 f"{prefix} ⚠️ {colorstr('bold', 'Restart runtime or rerun command for updates to take effect')}\n"
@@ -555,7 +555,8 @@ def check_dataset(data, autodownload=True):
                 LOGGER.info(f'Running {s} ...')
                 r = os.system(s)
             else:  # python script
-                r = exec(s, {'yaml': data})  # return None
+                exec(s, {'yaml': data})  # return None
+                r = None
             dt = f'({round(time.time() - t, 1)}s)'
             s = f"success ✅ {dt}, saved to {colorstr('bold', DATASETS_DIR)}" if r in (0, None) else f"failure {dt} ❌"
             LOGGER.info(f"Dataset download {s}")
