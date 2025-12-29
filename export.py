@@ -194,8 +194,8 @@ def export_openvino(file, metadata, half, prefix=colorstr('OpenVINO:')):
     LOGGER.info(f'\n{prefix} starting export with openvino {ie.__version__}...')
     f = str(file).replace('.pt', f'_openvino_model{os.sep}')
 
-    cmd = f"mo --input_model {file.with_suffix('.onnx')} --output_dir {f} --data_type {'FP16' if half else 'FP32'}"
-    subprocess.run(cmd.split(), check=True, env=os.environ)  # export
+    cmd = ['mo', '--input_model', str(file.with_suffix('.onnx')), '--output_dir', f, '--data_type', 'FP16' if half else 'FP32']
+    subprocess.run(cmd, check=True, env=os.environ)  # export
     yaml_save(Path(f) / file.with_suffix('.yaml').name, metadata)  # add metadata.yaml
     return f, None
 
@@ -403,25 +403,25 @@ def export_tflite(keras_model, im, file, int8, data, nms, agnostic_nms, prefix=c
 @try_export
 def export_edgetpu(file, prefix=colorstr('Edge TPU:')):
     # YOLOv5 Edge TPU export https://coral.ai/docs/edgetpu/models-intro/
-    cmd = 'edgetpu_compiler --version'
+    cmd = ['edgetpu_compiler', '--version']
     help_url = 'https://coral.ai/docs/edgetpu/compiler/'
     assert platform.system() == 'Linux', f'export only supported on Linux. See {help_url}'
-    if subprocess.run(f'{cmd} >/dev/null', shell=True).returncode != 0:
+    if subprocess.run(cmd, stdout=subprocess.DEVNULL).returncode != 0:
         LOGGER.info(f'\n{prefix} export requires Edge TPU compiler. Attempting install from {help_url}')
-        sudo = subprocess.run('sudo --version >/dev/null', shell=True).returncode == 0  # sudo installed on system
+        sudo = subprocess.run(['sudo', '--version'], stdout=subprocess.DEVNULL).returncode == 0  # sudo installed on system
         for c in (
-                'curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -',
-                'echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | sudo tee /etc/apt/sources.list.d/coral-edgetpu.list',
-                'sudo apt-get update', 'sudo apt-get install edgetpu-compiler'):
-            subprocess.run(c if sudo else c.replace('sudo ', ''), shell=True, check=True)
-    ver = subprocess.run(cmd, shell=True, capture_output=True, check=True).stdout.decode().split()[-1]
+                ['curl', 'https://packages.cloud.google.com/apt/doc/apt-key.gpg', '|', 'sudo', 'apt-key', 'add', '-'],
+                ['echo', '"deb https://packages.cloud.google.com/apt coral-edgetpu-stable main"', '|', 'sudo', 'tee', '/etc/apt/sources.list.d/coral-edgetpu.list'],
+                ['sudo', 'apt-get', 'update'], ['sudo', 'apt-get', 'install', 'edgetpu-compiler']):
+            subprocess.run(c if sudo else c[1:], check=True)
+    ver = subprocess.run(cmd, capture_output=True, check=True).stdout.decode().split()[-1]
 
     LOGGER.info(f'\n{prefix} starting export with Edge TPU compiler {ver}...')
     f = str(file).replace('.pt', '-int8_edgetpu.tflite')  # Edge TPU model
     f_tfl = str(file).replace('.pt', '-int8.tflite')  # TFLite model
 
-    cmd = f"edgetpu_compiler -s -d -k 10 --out_dir {file.parent} {f_tfl}"
-    subprocess.run(cmd.split(), check=True)
+    cmd = ['edgetpu_compiler', '-s', '-d', '-k', '10', '--out_dir', str(file.parent), f_tfl]
+    subprocess.run(cmd, check=True)
     return f, None
 
 
@@ -436,9 +436,9 @@ def export_tfjs(file, prefix=colorstr('TensorFlow.js:')):
     f_pb = file.with_suffix('.pb')  # *.pb path
     f_json = f'{f}/model.json'  # *.json path
 
-    cmd = f'tensorflowjs_converter --input_format=tf_frozen_model ' \
-          f'--output_node_names=Identity,Identity_1,Identity_2,Identity_3 {f_pb} {f}'
-    subprocess.run(cmd.split())
+    cmd = ['tensorflowjs_converter', '--input_format=tf_frozen_model',
+           '--output_node_names=Identity,Identity_1,Identity_2,Identity_3', str(f_pb), f]
+    subprocess.run(cmd)
 
     json = Path(f_json).read_text()
     with open(f_json, 'w') as j:  # sort JSON Identity_* in ascending order

@@ -385,9 +385,47 @@ def parse_model(d, ch, model, imgsz):  # model_dict, input_channels(3)
     no = na * (nc + 5)  # number of outputs = anchors * (classes + 5)
 
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
+    module_map = {
+        'nn.Conv2d': nn.Conv2d,
+        'Conv': Conv,
+        'DWConv': DWConv,
+        'DWConvTranspose2d': DWConvTranspose2d,
+        'Bottleneck': Bottleneck,
+        'SPP': SPP,
+        'SPPF': SPPF,
+        'MixConv2d': MixConv2d,
+        'Focus': Focus,
+        'CrossConv': CrossConv,
+        'BottleneckCSP': BottleneckCSP,
+        'C3': C3,
+        'C3x': C3x,
+        'nn.BatchNorm2d': nn.BatchNorm2d,
+        'Concat': Concat,
+        'Detect': Detect,
+        'Segment': Segment
+    }
+    tf_module_map = {
+        'nn.Conv2d': TFConv2d,
+        'Conv': TFConv,
+        'DWConv': TFDWConv,
+        'DWConvTranspose2d': TFDWConvTranspose2d,
+        'Bottleneck': TFBottleneck,
+        'SPP': TFSPP,
+        'SPPF': TFSPPF,
+        'MixConv2d': MixConv2d,  # Assuming MixConv2d has a TF equivalent
+        'Focus': TFFocus,
+        'CrossConv': TFCrossConv,
+        'BottleneckCSP': TFBottleneckCSP,
+        'C3': TFC3,
+        'C3x': TFC3x,
+        'nn.BatchNorm2d': TFBN,
+        'Concat': TFConcat,
+        'Detect': TFDetect,
+        'Segment': TFSegment
+    }
     for i, (f, n, m, args) in enumerate(d['backbone'] + d['head']):  # from, number, module, args
         m_str = m
-        m = eval(m) if isinstance(m, str) else m  # eval strings
+        m = module_map[m_str] if isinstance(m, str) else m  # map strings to modules
         for j, a in enumerate(args):
             try:
                 args[j] = eval(a) if isinstance(a, str) else a  # eval strings
@@ -419,7 +457,7 @@ def parse_model(d, ch, model, imgsz):  # model_dict, input_channels(3)
         else:
             c2 = ch[f]
 
-        tf_m = eval('TF' + m_str.replace('nn.', ''))
+        tf_m = tf_module_map[m_str]  # map strings to TF modules
         m_ = keras.Sequential([tf_m(*args, w=model.model[i][j]) for j in range(n)]) if n > 1 \
             else tf_m(*args, w=model.model[i])  # module
 
